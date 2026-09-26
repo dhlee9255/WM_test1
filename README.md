@@ -1,11 +1,32 @@
-# WM_test1 — 2D 액션 게임 월드모델
+# WM_test1 — 액션 게임 월드모델
 
-직접 만든 게임을 봇이 플레이한 기록(화면 + 키 입력)으로, 키 입력에 따라 다음 화면을 생성하는 **확산(diffusion) 월드모델**을 학습합니다.
+![게임 플레이 화면](docs/hero.png)
+
+**키보드 입력을 받아 다음 게임 화면을 "상상해서" 그려내는 신경망(월드모델)을 처음부터 끝까지 직접 만들어 보는 프로젝트**입니다.
+
+게임 엔진 없이도 게임처럼 동작하는 모델을 만드는 것이 목표입니다. 이를 위해 작은 탑다운 액션 게임을 직접 만들고, 스크립트 봇이 그 게임을 플레이한 기록(화면 + 키 입력) 20만 프레임을 모아, 확산(diffusion) 모델이 **"지금까지의 화면 + 지금 누른 키 → 다음 화면"** 을 학습하게 합니다. 학습이 끝나면 실제 게임 대신 모델이 매 프레임을 생성하고, 사람은 그 안에서 WASD와 Space로 플레이할 수 있습니다.
 
 ```
 게임 (Panda3D, Kenney 에셋)  →  봇 플레이 데이터 수집  →  서버에서 학습 (4×GPU)  →  로컬에서 모델 안에서 플레이
      play.py                      collect.py                 wm_server/train.py           play_model.py
 ```
+
+### 게임
+
+| 캐릭터 | 맵 (51×51 타일, 시드마다 생성) |
+|---|---|
+| ![캐릭터](docs/characters.png) | ![맵 전체](docs/map.png) |
+| 왼쪽부터 스켈레톤(1방), 플레이어, 좀비(2방) | 구역마다 집·창고·기둥 홀·폐허·시장 등을 배치 |
+
+- **조작**: WASD 이동, Space 공격, E 포션 줍기 — 월드모델이 배울 행동은 이 6개 키뿐
+- **규칙**: 체력 10, 몬스터가 다가와 공격, 공격하면 처치, 포션으로 회복
+- **화면**: 320×240, 15 fps (학습 데이터와 같은 해상도로 렌더링)
+
+### 학습 데이터 예시
+
+봇이 기록한 실제 학습 프레임 (320×240, 3틱 간격). 스켈레톤이 다가오고 → 공격을 맞아 빨갛게 번쩍인 뒤 → 쓰러집니다. 모델은 이런 프레임과 그때 누른 키만 보고 다음 프레임을 예측하도록 학습합니다.
+
+![학습 데이터 프레임](docs/frames.png)
 
 ## 폴더 구조
 
@@ -137,6 +158,18 @@ DIAMOND 방식의 EDM 확산 U-Net, 픽셀 공간에서 직접 생성 (약 3,200
 
 한계: 과거 4프레임(약 0.27초)만 보므로, 화면 밖으로 나간 것은 기억하지 못합니다.
 
-## 에셋
+## 에셋 출처
 
-[Kenney](https://kenney.nl) Mini Dungeon, Graveyard Kit (CC0). `setup_assets.py` 가 내려받아 Panda3D에서 애니메이션이 동작하도록 변환합니다.
+게임의 모든 3D 모델은 **[Kenney](https://kenney.nl)** 의 무료 에셋입니다. 라이선스는 **CC0 (퍼블릭 도메인)** 이라 상업적 이용·수정·재배포가 자유롭고 출처 표기 의무도 없지만, 감사의 뜻으로 밝혀 둡니다.
+
+| 에셋 팩 | 링크 | 게임에서 쓴 것 |
+|---|---|---|
+| **Mini Dungeon** | https://kenney.nl/assets/mini-dungeon | 플레이어(`character-human`), 검, 포션, 바닥·벽·기둥·바위·통·상자·항아리·테이블·의자·목재 구조물 |
+| **Graveyard Kit** | https://kenney.nl/assets/graveyard-kit | 적 캐릭터: 스켈레톤(`character-skeleton`), 좀비(`character-zombie`) |
+
+저장소에는 에셋 파일이 들어 있지 않습니다. `setup_assets.py` 가 위 링크에서 내려받은 뒤, Panda3D에서 애니메이션이 동작하도록 다음처럼 변환합니다.
+
+- **Mini Dungeon 캐릭터**: 몸통과 머리가 같은 뼈대를 쓰는 스킨 2개로 나뉘어 있어 panda3d-gltf 로더가 실패합니다. 스킨 1개로 합칩니다.
+- **Graveyard Kit 캐릭터**: 뼈대(스킨) 없이 부위 노드를 직접 움직이는 방식이라 Actor 애니메이션이 동작하지 않습니다. 각 부위를 뼈대에 100% 가중치로 묶은 스킨 메시로 변환합니다.
+
+그 밖에 사용한 라이브러리: [Panda3D](https://www.panda3d.org/) (렌더링), [panda3d-gltf](https://github.com/Moguri/panda3d-gltf) (glTF 로딩), [panda3d-simplepbr](https://github.com/Moguri/panda3d-simplepbr) (셰이딩), [pygame](https://www.pygame.org/) (화면 표시·키 입력), [PyTorch](https://pytorch.org/) (모델).
