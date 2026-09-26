@@ -37,6 +37,10 @@ ORIENTED = {core.FENCE, core.IRON_FENCE, core.STONE_WALL, core.GRAVESTONE, core.
 DECO_MODELS = {core.ROAD: [GY + "road"], core.DEBRIS: [GY + "debris"], core.DEBRIS_WOOD: [GY + "debris-wood"],
                core.GRAVE: [GY + "grave", GY + "grave-border"]}
 DECO_SCALE = {core.ROAD: 1.25}
+FLOOR_COLOR = (0.40, 0.48, 0.30)  # mossy ground, so grey stone structures stand out
+ROAD_COLOR = (0.78, 0.66, 0.46)   # sandy road bed under the cobbles, clearly different from the ground
+COBBLE_TINT = (1.1, 1.0, 0.85)
+COBBLE_CHANCE = 1 / 15  # plain sandy road with the odd cobblestone patch
 PROP_SCALE = {core.PINE: 0.75}  # full-size pines hide too much of the screen
 ACTION_TICKS = {"attack": core.ATTACK_TICKS, "pickup": core.PICKUP_TICKS}
 ENEMY_MODELS = {"skeleton": "graveyard/character-skeleton", "zombie": "graveyard/character-zombie"}
@@ -120,23 +124,35 @@ class Renderer:
             self.map_root.removeNode()
         rng = random.Random(game.seed ^ 0x5EED)
         root = NodePath("map")
+        ground, road, cobbles, props = NodePath("ground"), NodePath("road"), NodePath("cobbles"), NodePath("props")
         for y in range(core.MAP_H):
             for x in range(core.MAP_W):
                 cell = game.grid[y][x]
-                floor = "floor-detail" if game.floor_var[y][x] else "floor"
-                self._model(floor).copyTo(root).setPos(x + 0.5, y + 0.5, 0)
-                d = game.deco[y][x]
-                if d and cell == core.FLOOR:
-                    m = self._model(rng.choice(DECO_MODELS[d])).copyTo(root)
+                d = game.deco[y][x] if cell == core.FLOOR else core.NO_DECO
+                if d == core.ROAD:  # solid-coloured paved tile so roads read as continuous paths
+                    self._model("floor").copyTo(road).setPos(x + 0.5, y + 0.5, 0)
+                else:
+                    floor = "floor-detail" if game.floor_var[y][x] else "floor"
+                    self._model(floor).copyTo(ground).setPos(x + 0.5, y + 0.5, 0)
+                if d and (d != core.ROAD or rng.random() < COBBLE_CHANCE):
+                    m = self._model(rng.choice(DECO_MODELS[d])).copyTo(cobbles if d == core.ROAD else props)
                     m.setPos(x + 0.5, y + 0.5, 0.002)
                     m.setH(game.deco_rot[y][x])
                     m.setScale(DECO_SCALE.get(d, 1.0))
                 if cell in PROP_MODELS:
-                    m = self._model(rng.choice(PROP_MODELS[cell])).copyTo(root)
+                    m = self._model(rng.choice(PROP_MODELS[cell])).copyTo(props)
                     m.setPos(x + 0.5, y + 0.5, 0)
                     m.setH(game.rot[y][x] if cell in ORIENTED else rng.choice((0, 90, 180, 270)))
                     m.setScale(PROP_SCALE.get(cell, 1.0))
-        root.flattenStrong()
+        # flatten each layer on its own, then colour it: colouring before flattening would bake it
+        # into 8-bit vertex colours and clip tints brighter than 1.0
+        for layer in (ground, road, cobbles, props):
+            layer.flattenStrong()
+            layer.reparentTo(root)
+        for layer, color in ((ground, FLOOR_COLOR), (road, ROAD_COLOR)):  # flat colour instead of the texture
+            layer.setTextureOff(1)
+            layer.setColor(*color, 1, 1)
+        cobbles.setColorScale(*COBBLE_TINT, 1)
         root.reparentTo(self.base.render)
         self.map_root = root
         for p in self.potions:
