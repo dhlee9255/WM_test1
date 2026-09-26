@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+
+# downloaded by setup_assets.py (Kenney, CC0)
+assets/
+
+# collected episodes, packed training data, training runs, weights
+data/
+wm_server/data/
+wm_server/runs/
+runs/
+checkpoints/
+*.pt
+*.npz
+*.npy
+*.onnx
