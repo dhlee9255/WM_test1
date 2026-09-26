@@ -14,9 +14,30 @@ from . import core
 ASSETS = Path(__file__).resolve().parent.parent / "assets" / "processed"
 ANIM = {"idle": "idle", "walk": "walk", "attack": "attack-melee-right", "pickup": "pick-up", "die": "die"}
 LOOPING = {"idle", "walk"}
-PROP_MODEL = {core.WALL: "wall", core.ROCKS: "rocks", core.STONES: "stones", core.COLUMN: "column",
-              core.BARREL: "barrel", core.TABLE: "table", core.CHAIR: "chair",
-              core.CHEST: "chest", core.POT: "pot", core.WOOD: "wood-structure"}
+GY = "graveyard/"
+# kind -> model variants (picked per tile, seeded by the map)
+PROP_MODELS = {
+    core.WALL: ["wall"], core.ROCKS: ["rocks"], core.STONES: ["stones"], core.COLUMN: ["column"],
+    core.BARREL: ["barrel"], core.TABLE: ["table"], core.CHAIR: ["chair"], core.CHEST: ["chest"],
+    core.POT: ["pot"], core.WOOD: ["wood-structure"],
+    core.FENCE: [GY + "fence", GY + "fence", GY + "fence-damaged"],
+    core.IRON_FENCE: [GY + "iron-fence", GY + "iron-fence", GY + "iron-fence-damaged"],
+    core.STONE_WALL: [GY + "stone-wall", GY + "stone-wall", GY + "stone-wall-damaged"],
+    core.GRAVESTONE: [GY + n for n in ("gravestone-round", "gravestone-cross", "gravestone-bevel",
+                                       "gravestone-decorative", "gravestone-roof", "gravestone-broken")],
+    core.CRYPT: [GY + "crypt"], core.PINE: [GY + "pine", GY + "pine-crooked"],
+    core.LIGHTPOST: [GY + "lightpost-single"], core.HAY: [GY + "hay-bale", GY + "hay-bale-bundled"],
+    core.PUMPKIN: [GY + "pumpkin", GY + "pumpkin-tall", GY + "pumpkin-carved"],
+    core.BENCH: [GY + "bench", GY + "bench-damaged"], core.COFFIN: [GY + "coffin", GY + "coffin-old"],
+    core.PILLAR: [GY + "pillar-square", GY + "pillar-obelisk"],
+}
+# tiles whose heading comes from the map (fences follow their wall line, benches face the aisle...)
+ORIENTED = {core.FENCE, core.IRON_FENCE, core.STONE_WALL, core.GRAVESTONE, core.CRYPT, core.BENCH,
+            core.COFFIN, core.CHAIR}
+DECO_MODELS = {core.ROAD: [GY + "road"], core.DEBRIS: [GY + "debris"], core.DEBRIS_WOOD: [GY + "debris-wood"],
+               core.GRAVE: [GY + "grave", GY + "grave-border"]}
+DECO_SCALE = {core.ROAD: 1.25}
+PROP_SCALE = {core.PINE: 0.75}  # full-size pines hide too much of the screen
 ACTION_TICKS = {"attack": core.ATTACK_TICKS, "pickup": core.PICKUP_TICKS}
 ENEMY_MODELS = {"skeleton": "graveyard/character-skeleton", "zombie": "graveyard/character-zombie"}
 POOL_PER_KIND = 16
@@ -104,10 +125,17 @@ class Renderer:
                 cell = game.grid[y][x]
                 floor = "floor-detail" if game.floor_var[y][x] else "floor"
                 self._model(floor).copyTo(root).setPos(x + 0.5, y + 0.5, 0)
-                if cell in PROP_MODEL:
-                    m = self._model(PROP_MODEL[cell]).copyTo(root)
+                d = game.deco[y][x]
+                if d and cell == core.FLOOR:
+                    m = self._model(rng.choice(DECO_MODELS[d])).copyTo(root)
+                    m.setPos(x + 0.5, y + 0.5, 0.002)
+                    m.setH(game.deco_rot[y][x])
+                    m.setScale(DECO_SCALE.get(d, 1.0))
+                if cell in PROP_MODELS:
+                    m = self._model(rng.choice(PROP_MODELS[cell])).copyTo(root)
                     m.setPos(x + 0.5, y + 0.5, 0)
-                    m.setH(rng.choice((0, 90, 180, 270)))
+                    m.setH(game.rot[y][x] if cell in ORIENTED else rng.choice((0, 90, 180, 270)))
+                    m.setScale(PROP_SCALE.get(cell, 1.0))
         root.flattenStrong()
         root.reparentTo(self.base.render)
         self.map_root = root

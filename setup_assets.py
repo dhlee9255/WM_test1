@@ -143,8 +143,11 @@ def main():
     gy = PROCESSED / "graveyard"
     (gy / "Textures").mkdir(parents=True, exist_ok=True)
     shutil.copy(GRAVEYARD_GLB / "Textures" / "colormap.png", gy / "Textures" / "colormap.png")
-    for name in GRAVEYARD_CHARS:
-        rigid_to_skinned(GRAVEYARD_GLB / f"{name}.glb", gy / f"{name}.glb")
+    for f in GRAVEYARD_GLB.glob("*.glb"):
+        if f.stem in GRAVEYARD_CHARS:
+            rigid_to_skinned(f, gy / f.name)
+        elif not f.stem.startswith("character-"):
+            shutil.copy(f, gy / f.name)  # props: fences, gravestones, roads, trees...
     print("assets ready:", PROCESSED)
 
 
