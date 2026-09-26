@@ -77,7 +77,8 @@ def main():
             nxt = model.sample(ctx[None], acts[None], steps=args.steps, ctx_sigma=args.ctx_sigma)[0].float()
         if args.device.startswith("cuda"):
             torch.cuda.synchronize()
-        fps = 0.9 * fps + 0.1 / max(time.time() - t0, 1e-6)
+        cur = 1 / max(time.time() - t0, 1e-6)
+        fps = cur if fps == 0.0 else 0.8 * fps + 0.2 * cur
         ctx = torch.cat([ctx[1:], nxt[None]])
 
         img = to_image(nxt)
