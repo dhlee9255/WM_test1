@@ -30,6 +30,7 @@ def main():
     ap.add_argument("--display", default="960x720")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--fp16", action="store_true", help="half precision (tensor cores on RTX GPUs)")
+    ap.add_argument("--ctx-sigma", type=float, default=0.0, help="noise added to context frames (e.g. 0.05-0.1)")
     args = ap.parse_args()
     use_fp16 = args.fp16 and args.device.startswith("cuda")
 
@@ -73,7 +74,7 @@ def main():
         acts = torch.cat([acts[1:], torch.tensor([keys], dtype=torch.float32, device=args.device)])
         t0 = time.time()
         with torch.autocast("cuda", dtype=torch.float16, enabled=use_fp16):
-            nxt = model.sample(ctx[None], acts[None], steps=args.steps)[0].float()
+            nxt = model.sample(ctx[None], acts[None], steps=args.steps, ctx_sigma=args.ctx_sigma)[0].float()
         if args.device.startswith("cuda"):
             torch.cuda.synchronize()
         fps = 0.9 * fps + 0.1 / max(time.time() - t0, 1e-6)

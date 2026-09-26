@@ -3,5 +3,7 @@ panda3d-gltf>=1.3
 panda3d-simplepbr>=0.13
 numpy
 pillow
+imageio
+imageio-ffmpeg
 pygame>=2.6
 # torch: install the CUDA build for your GPU, see README

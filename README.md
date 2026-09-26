@@ -37,6 +37,7 @@
 | `collect.py` | 봇으로 학습 데이터 수집 |
 | `play_model.py` | 학습된 월드모델 안에서 플레이 |
 | `setup_assets.py` | 에셋 다운로드 및 변환 |
+| `tools/view_data.py` | 학습 데이터를 2×2 영상으로 확인 (키 입력·체력 표시) |
 | `wm_server/` | 학습 코드. **이 폴더만 서버로 옮기면 학습 가능** |
 
 데이터(`wm_server/data/`), 에셋(`assets/`), 가중치(`*.pt`)는 용량 때문에 저장소에 포함하지 않습니다.
@@ -126,6 +127,21 @@ torchrun --nproc_per_node 4 train.py --data data/packed --out runs/wm
 
 결과물: `runs/wm/last.pt` (EMA 가중치 포함), `runs/wm/step_XXXXXX.pt` (2.5만 스텝마다 스냅샷).
 
+### 긴 롤아웃 비교 (재학습 없이 생성 설정만 바꿔 보기)
+
+녹화된 에피소드의 키 입력을 그대로 모델에 넣어 수십 초를 이어 생성하고, 설정별 결과를 실제 게임과 나란히 영상으로 저장합니다.
+
+```bash
+python compare_rollout.py --ckpt runs/wm/last.pt --episode data/raw/<파일>.npz \
+    --frames 600 --settings 3:0 10:0 10:0.1 --out compare.mp4
+```
+
+- `--settings` 의 각 항목은 `디노이징횟수:ctx_sigma`
+  - 디노이징 횟수: 늘리면 느려지지만 흐릿하게 평균 내는 경향이 줄어듦
+  - `ctx_sigma`: 과거 프레임에 섞는 노이즈 (학습 때 0~0.3 사용). 0.05~0.1을 주면 누적 오차에 덜 끌려감
+- 영상 가로 순서: 실제 게임 | 설정1 | 설정2 | ...
+- 같은 설정을 `play_model.py --steps 10 --ctx-sigma 0.1` 로 직접 플레이하며 확인할 수 있음
+
 ## 5. 학습된 모델 실행 (로컬 PC)
 
 서버의 `runs/wm/last.pt` 를 받아 `checkpoints/last.pt` 에 둡니다.
@@ -137,6 +153,7 @@ python play_model.py --ckpt checkpoints/last.pt --fp16
 - 실제 게임으로 첫 4프레임을 만든 뒤, 그다음부터는 **모든 화면을 모델이 생성**합니다.
 - 조작은 게임과 같고, `R` 을 누르면 새 시드의 실제 화면으로 다시 시작합니다.
 - `--fp16`: RTX GPU의 텐서 코어 사용 (권장). `--steps 1` 이면 빠르지만 화질이 떨어질 수 있습니다.
+- `--ctx-sigma 0.1`: 과거 프레임에 약간의 노이즈를 섞어 긴 플레이에서 무너짐을 완화 (위 비교 영상으로 적정값 확인)
 - 창 제목에 생성 fps 가 표시됩니다.
 
 예상 속도 (기본 모델, 디노이징 3스텝):

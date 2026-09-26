@@ -192,6 +192,8 @@ class WorldModel(nn.Module):
         sigmas = (sigma_max ** (1 / rho) + ramp * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
         sigmas = torch.cat([sigmas, sigmas.new_zeros(1)])
         cs = torch.full((b,), float(ctx_sigma), device=ctx.device)
+        if ctx_sigma > 0:  # match training: context frames are actually noised at the level we report
+            ctx = ctx + ctx_sigma * torch.randn_like(ctx)
         x = torch.randn(b, 3, h, w, device=ctx.device) * sigmas[0]
         for i in range(steps):
             s = sigmas[i].expand(b)
