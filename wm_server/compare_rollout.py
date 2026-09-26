@@ -45,7 +45,7 @@ def label(frames, text):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ckpt", default="runs/wm/last.pt")
+    ap.add_argument("--ckpt", default="runs/wm_v2/last.pt")
     ap.add_argument("--episode", default=None, help="episode .npz (default: a validation episode from data/raw)")
     ap.add_argument("--raw", default="data/raw")
     ap.add_argument("--start", type=int, default=100, help="first context frame")

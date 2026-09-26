@@ -1,8 +1,8 @@
 """Train the diffusion world model.
 
   python prepare_data.py --raw data/raw --out data/packed                 # once
-  torchrun --nproc_per_node 4 train.py --data data/packed --out runs/wm   # 4 GPUs
-  python train.py --data data/packed --out runs/wm                        # 1 GPU
+  torchrun --nproc_per_node 4 train.py --data data/packed --out runs/wm_v2   # 4 GPUs
+  python train.py --data data/packed --out runs/wm_v2                        # 1 GPU
 
 Re-running the same command resumes from <out>/last.pt. Every --eval-every steps an
 autoregressive rollout on validation episodes is saved to <out>/samples/ (top: real, bottom: model).
@@ -30,14 +30,14 @@ from wm.rollout import comparison_strip, rollout
 def parse():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default="data/packed")
-    ap.add_argument("--out", default="runs/wm")
+    ap.add_argument("--out", default="runs/wm_v2")
     ap.add_argument("--steps", type=int, default=150_000)
     ap.add_argument("--batch", type=int, default=16, help="per GPU")
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--warmup", type=int, default=2000)
     ap.add_argument("--weight-decay", type=float, default=1e-2)
     ap.add_argument("--ema", type=float, default=0.999)
-    ap.add_argument("--context", type=int, default=4)
+    ap.add_argument("--context", type=int, default=8, help="past frames the model sees (8 = ~0.5 s)")
     ap.add_argument("--channels", default="64,64,128,256,256")
     ap.add_argument("--workers", type=int, default=8, help="dataloader workers per GPU")
     ap.add_argument("--log-every", type=int, default=100)
