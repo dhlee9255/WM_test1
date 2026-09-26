@@ -1,7 +1,7 @@
 """Play inside the learned world model. The real game renders the first N context frames,
 then every frame comes from the diffusion model conditioned on your keys.
 
-python play_model.py            # uses checkpoints/last.pt, 10 steps, context noise 0.1, auto fp16
+python play_model.py            # uses checkpoints/last.pt, 5 steps, context noise 0.1, auto fp16
 Keys: WASD move, Space attack, E pick up, R reset (re-seed from the real game), Esc quit.
 """
 import argparse
@@ -26,7 +26,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ckpt", default="checkpoints/last.pt")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
-    ap.add_argument("--steps", type=int, default=10, help="denoising steps per frame (fewer = faster, blurrier)")
+    ap.add_argument("--steps", type=int, default=5, help="denoising steps per frame (fewer = faster, blurrier)")
     ap.add_argument("--display", default="960x720")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--fp32", action="store_true", help="disable the automatic float16 mode")
