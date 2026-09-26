@@ -25,6 +25,10 @@ def main():
         free, total = torch.cuda.mem_get_info()
         print(f"GPU memory free {free / 1e9:.1f} / {total / 1e9:.1f} GB")
     model, ck = load_checkpoint(args.ckpt, dev)
+    models = {False: model}
+    if dev == "cuda":
+        models[True] = load_checkpoint(args.ckpt, dev, half=True)[0]
+    torch.backends.cudnn.benchmark = True
     n, a = model.cfg.context, model.cfg.num_actions
     ctx = torch.zeros(1, n, 3, 240, 320, device=dev)
     acts = torch.zeros(1, n, a, device=dev)
@@ -35,15 +39,15 @@ def main():
             for cs in (0.0, 0.1):
                 if fp16 and dev != "cuda":
                     continue
-                with torch.autocast("cuda", dtype=torch.float16, enabled=fp16):
-                    model.sample(ctx, acts, steps=steps, ctx_sigma=cs)  # warm-up
-                    if dev == "cuda":
-                        torch.cuda.synchronize()
-                    t = time.time()
-                    for _ in range(args.reps):
-                        model.sample(ctx, acts, steps=steps, ctx_sigma=cs)
-                    if dev == "cuda":
-                        torch.cuda.synchronize()
+                m = models[fp16]
+                m.sample(ctx, acts, steps=steps, ctx_sigma=cs)  # warm-up
+                if dev == "cuda":
+                    torch.cuda.synchronize()
+                t = time.time()
+                for _ in range(args.reps):
+                    m.sample(ctx, acts, steps=steps, ctx_sigma=cs)
+                if dev == "cuda":
+                    torch.cuda.synchronize()
                 dt = (time.time() - t) / args.reps
                 print(f"{steps:>5} {cs:>9} {str(fp16):>5} {dt * 1000:>9.0f} {1 / dt:>6.1f}", flush=True)
 

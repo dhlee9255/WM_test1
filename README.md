@@ -129,39 +129,25 @@ torchrun --nproc_per_node 4 train.py --data data/packed --out runs/wm
 
 ### 긴 롤아웃 비교 (재학습 없이 생성 설정만 바꿔 보기)
 
-녹화된 에피소드의 키 입력을 그대로 모델에 넣어 수십 초를 이어 생성하고, 설정별 결과를 실제 게임과 나란히 영상으로 저장합니다.
-
 ```bash
-python compare_rollout.py --ckpt runs/wm/last.pt --episode data/raw/<파일>.npz \
-    --frames 600 --settings 3:0 10:0 10:0.1 --out compare.mp4
+python compare_rollout.py
 ```
 
-- `--settings` 의 각 항목은 `디노이징횟수:ctx_sigma`
-  - 디노이징 횟수: 늘리면 느려지지만 흐릿하게 평균 내는 경향이 줄어듦
-  - `ctx_sigma`: 과거 프레임에 섞는 노이즈 (학습 때 0~0.3 사용). 0.05~0.1을 주면 누적 오차에 덜 끌려감
-- 영상 가로 순서: 실제 게임 | 설정1 | 설정2 | ...
-- 같은 설정을 `play_model.py --steps 10 --ctx-sigma 0.1` 로 직접 플레이하며 확인할 수 있음
+학습에 안 쓴 검증 에피소드를 자동으로 골라, 그 키 입력으로 40초를 이어 생성한 `compare.mp4` 를 만듭니다.
+가로 순서: **실제 게임 | 3스텝 | 5스텝 | 7스텝 | 10스텝** (모두 과거 프레임 노이즈 0.1). 품질이 유지되는 가장 적은 스텝 수를 고르면 됩니다. 다른 설정은 `--settings 5:0.05 5:0.2` 처럼 `스텝:노이즈` 로 지정.
 
 ## 5. 학습된 모델 실행 (로컬 PC)
 
-서버의 `runs/wm/last.pt` 를 받아 `checkpoints/last.pt` 에 둡니다.
+서버의 `runs/wm/last.pt` 를 받아 `checkpoints/last.pt` 에 두고:
 
 ```bash
-python play_model.py --ckpt checkpoints/last.pt --fp16
+python play_model.py
 ```
 
-- 실제 게임으로 첫 4프레임을 만든 뒤, 그다음부터는 **모든 화면을 모델이 생성**합니다.
-- 조작은 게임과 같고, `R` 을 누르면 새 시드의 실제 화면으로 다시 시작합니다.
-- `--fp16`: RTX GPU의 텐서 코어 사용 (권장). `--steps 1` 이면 빠르지만 화질이 떨어질 수 있습니다.
-- `--ctx-sigma 0.1`: 과거 프레임에 약간의 노이즈를 섞어 긴 플레이에서 무너짐을 완화 (위 비교 영상으로 적정값 확인)
-- 창 제목에 생성 fps 가 표시됩니다.
-
-예상 속도 (기본 모델, 디노이징 3스텝):
-
-| GPU | 예상 fps |
-|---|---|
-| RTX 2060 (fp16) | 약 12~16 (추정) |
-| MX250 (fp32) | 약 1.1 (실측) |
+- 실제 게임으로 첫 4프레임을 만든 뒤, 그다음부터는 **모든 화면을 모델이 생성**합니다. 조작은 게임과 같고 `R` 은 새 시드로 다시 시작.
+- 기본 설정: 디노이징 10스텝, 과거 프레임 노이즈 0.1 (긴 플레이에서 몬스터·구조물이 유지되는 설정). RTX GPU면 16비트 가속 자동 적용.
+- 더 빠르게: `python play_model.py --steps 5` (스텝을 줄이면 빨라지고 흐려짐)
+- 창 제목에 생성 fps 표시. 속도가 이상하면 `python tools/bench_infer.py --ckpt checkpoints/last.pt` 로 설정별 속도 측정.
 
 ## 모델 요약
 

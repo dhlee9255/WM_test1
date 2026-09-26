@@ -1,7 +1,7 @@
 """Play inside the learned world model. The real game renders the first N context frames,
 then every frame comes from the diffusion model conditioned on your keys.
 
-python play_model.py --ckpt checkpoints/last.pt --fp16
+python play_model.py            # uses checkpoints/last.pt, 10 steps, context noise 0.1, auto fp16
 Keys: WASD move, Space attack, E pick up, R reset (re-seed from the real game), Esc quit.
 """
 import argparse
@@ -17,24 +17,25 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).parent / "wm_server"))
 from wm.data import to_image, to_model  # noqa: E402
-from wm.model import load_checkpoint  # noqa: E402
+from wm.model import fast_fp16_available, load_checkpoint  # noqa: E402
 
 from wmgame.core import TICK_HZ  # noqa: E402
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ckpt", required=True)
+    ap.add_argument("--ckpt", default="checkpoints/last.pt")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
-    ap.add_argument("--steps", type=int, default=3, help="denoising steps per frame")
+    ap.add_argument("--steps", type=int, default=10, help="denoising steps per frame (fewer = faster, blurrier)")
     ap.add_argument("--display", default="960x720")
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--fp16", action="store_true", help="half precision (tensor cores on RTX GPUs)")
-    ap.add_argument("--ctx-sigma", type=float, default=0.0, help="noise added to context frames (e.g. 0.05-0.1)")
+    ap.add_argument("--fp32", action="store_true", help="disable the automatic float16 mode")
+    ap.add_argument("--ctx-sigma", type=float, default=0.1, help="noise added to context frames")
     args = ap.parse_args()
-    use_fp16 = args.fp16 and args.device.startswith("cuda")
+    use_fp16 = args.device.startswith("cuda") and fast_fp16_available() and not args.fp32
+    torch.backends.cudnn.benchmark = True
 
-    model, ck = load_checkpoint(args.ckpt, args.device)
+    model, ck = load_checkpoint(args.ckpt, args.device, half=use_fp16)
     n = model.cfg.context
     print(f"loaded step {ck['step']} on {args.device}")
 
@@ -73,8 +74,7 @@ def main():
         attack = pickup = False
         acts = torch.cat([acts[1:], torch.tensor([keys], dtype=torch.float32, device=args.device)])
         t0 = time.time()
-        with torch.autocast("cuda", dtype=torch.float16, enabled=use_fp16):
-            nxt = model.sample(ctx[None], acts[None], steps=args.steps, ctx_sigma=args.ctx_sigma)[0].float()
+        nxt = model.sample(ctx[None], acts[None], steps=args.steps, ctx_sigma=args.ctx_sigma)[0]
         if args.device.startswith("cuda"):
             torch.cuda.synchronize()
         cur = 1 / max(time.time() - t0, 1e-6)

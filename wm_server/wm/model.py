@@ -188,23 +188,34 @@ class WorldModel(nn.Module):
     def sample(self, ctx, actions, steps=3, sigma_min=2e-3, sigma_max=5.0, rho=7.0, ctx_sigma=0.0):
         """Euler sampler over a Karras schedule. Returns next frame in [-1,1]."""
         b, _, _, h, w = ctx.shape
+        dt = next(self.parameters()).dtype  # float16 when the model was .half()-ed for inference
+        ctx, actions = ctx.to(dt), actions.to(dt)
         ramp = torch.linspace(0, 1, steps, device=ctx.device)
         sigmas = (sigma_max ** (1 / rho) + ramp * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
         sigmas = torch.cat([sigmas, sigmas.new_zeros(1)])
-        cs = torch.full((b,), float(ctx_sigma), device=ctx.device)
+        cs = torch.full((b,), float(ctx_sigma), device=ctx.device, dtype=dt)
         if ctx_sigma > 0:  # match training: context frames are actually noised at the level we report
             ctx = ctx + ctx_sigma * torch.randn_like(ctx)
         x = torch.randn(b, 3, h, w, device=ctx.device) * sigmas[0]
         for i in range(steps):
             s = sigmas[i].expand(b)
-            den = self.denoise(x, s, ctx, actions, cs)
+            den = self.denoise(x.to(dt), s.to(dt), ctx, actions, cs).float()
             x = x + (x - den) / sigmas[i] * (sigmas[i + 1] - sigmas[i])
         return x.clamp(-1, 1)
 
 
-def load_checkpoint(path, device="cpu", ema=True):
+def load_checkpoint(path, device="cpu", ema=True, half=False):
+    """half=True: float16 weights in channels_last layout (fast inference on tensor-core GPUs)."""
     ck = torch.load(path, map_location=device, weights_only=False)
     cfg = ModelConfig(**{k: tuple(v) if isinstance(v, list) else v for k, v in ck["config"].items()})
     model = WorldModel(cfg)
     model.load_state_dict(ck["ema" if ema and "ema" in ck else "model"])
-    return model.to(device).eval(), ck
+    model = model.to(device).eval()
+    if half:
+        model = model.half().to(memory_format=torch.channels_last)
+    return model, ck
+
+
+def fast_fp16_available():
+    """True on GPUs with tensor cores (RTX 20xx and newer), where float16 is much faster."""
+    return torch.cuda.is_available() and torch.cuda.get_device_capability(0) >= (7, 0)
