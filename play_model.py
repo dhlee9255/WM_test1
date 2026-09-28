@@ -1,7 +1,7 @@
 """Play inside the learned world model. The real game renders the first N context frames,
 then every frame comes from the diffusion model conditioned on your keys.
 
-python play_model.py            # uses checkpoints/last.pt, 5 steps, context noise 0.1, auto fp16
+python play_model.py            # weights from checkpoints/, 5 steps, context noise 0.1, auto fp16
 Keys: WASD move, Space attack, E pick up, R reset (re-seed from the real game), Esc quit.
 """
 import argparse
@@ -22,9 +22,17 @@ from wm.model import fast_fp16_available, load_checkpoint  # noqa: E402
 from wmgame.core import TICK_HZ  # noqa: E402
 
 
+def find_checkpoint():
+    """The newest .pt file in checkpoints/ (so any file name works)."""
+    ckpts = sorted((Path(__file__).parent / "checkpoints").glob("*.pt"), key=lambda p: p.stat().st_mtime)
+    if not ckpts:
+        sys.exit("No weights found: put the .pt file in the checkpoints/ folder (see README).")
+    return str(ckpts[-1])
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ckpt", default="checkpoints/last.pt")
+    ap.add_argument("--ckpt", default=None, help="weights file (default: newest .pt in checkpoints/)")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--steps", type=int, default=5, help="denoising steps per frame (fewer = faster, blurrier)")
     ap.add_argument("--display", default="960x720")
@@ -32,12 +40,16 @@ def main():
     ap.add_argument("--fp32", action="store_true", help="disable the automatic float16 mode")
     ap.add_argument("--ctx-sigma", type=float, default=0.1, help="noise added to context frames")
     args = ap.parse_args()
+    if args.device == "cpu":
+        print("WARNING: PyTorch cannot use a GPU here, running on CPU (well under 1 fps).\n"
+              "         Run `python check_setup.py` to see how to fix it.")
     use_fp16 = args.device.startswith("cuda") and fast_fp16_available() and not args.fp32
     torch.backends.cudnn.benchmark = True
 
-    model, ck = load_checkpoint(args.ckpt, args.device, half=use_fp16)
+    ckpt = args.ckpt or find_checkpoint()
+    model, ck = load_checkpoint(ckpt, args.device, half=use_fp16)
     n = model.cfg.context
-    print(f"loaded step {ck['step']} on {args.device}")
+    print(f"loaded {ckpt} (step {ck['step']}, {n} context frames) on {args.device}{' fp16' if use_fp16 else ''}")
 
     from wmgame.app import Session
     sess = Session(320, 240, offscreen=True)
