@@ -65,17 +65,11 @@ python setup_assets.py
 
 `setup_assets.py` 는 게임 3D 모델(Kenney, 무료)을 내려받아 변환합니다. 처음 한 번만 하면 됩니다.
 
-### 5. 가중치 받기
+### 5. 가중치
 
-[**Releases**](https://github.com/dhlee9255/WM_test1/releases/latest) 에서 `wm_v2.pt` (약 64MB)를 내려받아, 저장소 안에 `checkpoints` 폴더를 만들고 그 안에 넣습니다.
+학습된 가중치 `checkpoints/wm_v2.pt` (약 64MB, 10만 스텝)가 **저장소에 포함**되어 있어서 1번 `git clone` 으로 이미 받아졌습니다. 따로 할 일은 없습니다.
 
-```
-WM_test1/
-└─ checkpoints/
-   └─ wm_v2.pt
-```
-
-`checkpoints/` 안의 `.pt` 파일은 이름과 상관없이 자동으로 찾습니다 (여러 개면 가장 최근 파일).
+다른 가중치를 쓰고 싶으면 `.pt` 파일을 `checkpoints/` 폴더에 넣으면 됩니다. 이름과 상관없이 자동으로 찾습니다 (여러 개면 가장 최근 파일).
 
 ### 6. 설치 점검
 
@@ -157,7 +151,7 @@ python play.py --display 1280x960     # 큰 창
 | 창 제목에 `cpu`, 1초에 1장도 안 나옴 | GPU를 못 쓰는 상태. `python check_setup.py` 의 안내대로 3번 PyTorch를 다시 설치 |
 | `no kernel image is available` | RTX 50 시리즈인데 cu126 을 설치한 경우 → cu128 로 다시 설치 (`pip install --force-reinstall torch --index-url https://download.pytorch.org/whl/cu128`) |
 | `WinError 1114 ... c10.dll` | [Visual C++ 재배포 패키지(x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe) 설치 후 다시 실행 |
-| `No weights found` | 5번: `checkpoints/` 폴더 안에 `.pt` 파일이 있는지 확인 |
+| `No weights found` | `checkpoints/wm_v2.pt` 가 있는지 확인. 없으면 `git pull` |
 | 에셋 관련 오류, 화면이 이상함 | `python setup_assets.py` 다시 실행 |
 
 ---
@@ -213,7 +207,7 @@ python play.py --display 1280x960     # 큰 창
 | `wm_server/` | 학습 코드 (`train.py`, `prepare_data.py`, `compare_rollout.py`, `wm/`) |
 | `tools/` | 데이터 영상 확인(`view_data.py`), 속도 측정(`bench_infer.py`), 배포용 가중치 추출(`export_weights.py`) |
 
-데이터, 에셋, 가중치(`*.pt`)는 용량 때문에 저장소에 포함하지 않습니다.
+데이터와 에셋, 학습용 체크포인트는 용량 때문에 저장소에 포함하지 않습니다. 추론용 가중치 `checkpoints/wm_v2.pt` 만 포함되어 있습니다.
 
 ---
 

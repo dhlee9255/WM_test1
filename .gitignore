@@ -10,8 +10,10 @@ data/
 wm_server/data/
 wm_server/runs/
 runs/
-checkpoints/
+checkpoints/*
 *.pt
+# shipped inference weights (EMA, float16, ~64MB)
+!checkpoints/wm_v2.pt
 *.npz
 *.npy
 *.onnx
